@@ -1,4 +1,4 @@
-A web application that does something super awesome.
+This pulls in data from twitter about links shared and the conversation around them, munges it a bit and then serves it up.
 
 ## Dependencies
 
