@@ -9,6 +9,8 @@
             [com.beardandcode.tools :refer [scss]]
             [com.beardandcode.twitter-news.system :refer [new-system]]))
 
+(selmer.parser/cache-off!)
+
 (reloaded.repl/set-init!
  #(new-system env))
 
