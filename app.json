@@ -1,0 +1,16 @@
+{
+    "name": "Twitter news",
+    "description": "A web app to do some great things.",
+    "repository": "https://github.com/beardandcode/twitter-news",
+    "success_url": "/",
+    "addons": [
+    ],
+    "buildpacks": [
+        {
+            "url": "https://github.com/beardandcode/heroku-buildpack-sassc-static"
+        },
+        {
+            "url": "https://github.com/heroku/heroku-buildpack-clojure"
+        }
+    ]
+}
