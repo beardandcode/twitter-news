@@ -3,6 +3,20 @@
     "description": "A web app to do some great things.",
     "repository": "https://github.com/beardandcode/twitter-news",
     "success_url": "/",
+    "env": {
+      "TWITTER_CONSUMER_KEY": {
+        "description": "Can be found at https://apps.twitter.com"
+      },
+      "TWITTER_CONSUMER_SECRET": {
+        "description": "Can be found at https://apps.twitter.com"
+      },
+      "TWITTER_TOKEN": {
+        "description": "Can be found at https://apps.twitter.com"
+      },
+      "TWITTER_SECRET": {
+        "description": "Can be found at https://apps.twitter.com"
+      }
+    },
     "addons": [
     ],
     "buildpacks": [

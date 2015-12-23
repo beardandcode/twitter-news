@@ -10,3 +10,4 @@ pom.xml.asc
 .DS_Store
 resources/public/css/bundle.css
 phantomjsdriver.log
+stream.out

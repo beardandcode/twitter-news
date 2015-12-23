@@ -21,7 +21,11 @@
                  [selmer "0.9.5"]
                  [buddy/buddy-auth "0.8.2"]
                  [metrics-clojure "2.6.0"]
-                 [metrics-clojure-ring "2.6.0"]]
+                 [metrics-clojure-ring "2.6.0"]
+
+                 [org.apache.httpcomponents/httpclient "4.5.1"]
+                 [com.twitter/hbc-core "2.2.0"]
+                 [org.clojure/core.async "0.2.371"]]
 
   :source-paths ["src/clj"]
   :test-paths ["test/clj"]

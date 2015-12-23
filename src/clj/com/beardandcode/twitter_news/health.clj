@@ -8,7 +8,8 @@
             [compojure.route :as route]
             [environ.core :refer [env]]
             [metrics.ring.expose :refer [serve-metrics]]
-            [ring.middleware.params :refer [wrap-params]]))
+            [ring.middleware.params :refer [wrap-params]]
+            [com.beardandcode.twitter-news.stats :as stats]))
 
 (defprotocol IHealthcheck
   (alive? [_]))
@@ -49,6 +50,12 @@
          (GET "/environment-variables" [] (json-response env))
 
          (GET "/metrics" [] (serve-metrics nil))
+
+         (GET "/metrics/components" []
+              (json-response (->> dependencies
+                                  (filter (fn [[name impl]] (satisfies? stats/StatsProvider impl)))
+                                  (map (fn [[name impl]] {name (stats/stats impl)}))
+                                  (apply merge))))
 
          (route/resources "/static/"))
 
