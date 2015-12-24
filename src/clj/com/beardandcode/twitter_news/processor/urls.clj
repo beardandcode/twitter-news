@@ -2,8 +2,8 @@
   (:require [clojure.core.async :as async]
             [com.stuartsierra.component :as component]
             [metrics.meters :refer [mark! meter]]
-            [com.beardandcode.twitter-news.stats :as stats]
-            [com.beardandcode.twitter-news.streaming :as s]))
+            [com.beardandcode.twitter-news.api.streaming :as s]
+            [com.beardandcode.twitter-news.stats :as stats]))
 
 (defn- flatten-stream
   ([in-chan] (flatten-stream (async/buffer 100)))

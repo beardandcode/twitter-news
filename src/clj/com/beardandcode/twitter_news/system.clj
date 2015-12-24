@@ -3,17 +3,19 @@
             [com.beardandcode.components
              [web-server :refer [new-web-server]]
              [routes :refer [new-routes new-context-routes]]]
+            [com.beardandcode.twitter-news.api :refer [make-auth new-client]]
+            [com.beardandcode.twitter-news.api.streaming :refer [new-filter-stream new-recorded-stream]]
             [com.beardandcode.twitter-news.health :as health]
             [com.beardandcode.twitter-news.processor :refer [new-processor]]
             [com.beardandcode.twitter-news.processor.recorder :refer [record-stream]]
             [com.beardandcode.twitter-news.processor.urls :refer [extract-urls]]
-            [com.beardandcode.twitter-news.streaming :refer [new-filter-stream make-auth new-recorded-stream]]
             [com.beardandcode.twitter-news.webapp :as webapp]))
 
 (defn new-system [env]
   (let [twitter-auth (make-auth (:twitter-consumer-key env) (:twitter-consumer-secret env)
                                 (:twitter-token env) (:twitter-secret env))]
     (component/system-map
+     :client (new-client twitter-auth)
      :streamer (new-filter-stream twitter-auth ["twitter" "instagram" "snap"] [])
      :urls (component/using (new-processor extract-urls) [:streamer])
      :health-routes (component/using

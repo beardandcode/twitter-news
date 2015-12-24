@@ -25,7 +25,8 @@
 
                  [org.apache.httpcomponents/httpclient "4.5.1"]
                  [com.twitter/hbc-core "2.2.0"]
-                 [org.clojure/core.async "0.2.371"]]
+                 [org.clojure/core.async "0.2.371"]
+                 [throttler "1.0.0"]]
 
   :source-paths ["src/clj"]
   :test-paths ["test/clj"]

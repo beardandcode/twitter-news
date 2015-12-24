@@ -4,7 +4,7 @@
             [com.stuartsierra.component :as component]
             [cheshire.core :as json]
             [metrics.meters :refer [mark! meter]]
-            [com.beardandcode.twitter-news.streaming :as s]))
+            [com.beardandcode.twitter-news.api.streaming :as s]))
 
 (defn record-stream [out-file]
   (fn [in-chan metric-registry]

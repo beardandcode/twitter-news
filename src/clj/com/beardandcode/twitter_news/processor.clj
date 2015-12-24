@@ -3,8 +3,8 @@
             [com.stuartsierra.component :as component]
             [metrics.core :refer [new-registry]]
             [metrics.meters :refer [mark! meter]]
-            [com.beardandcode.twitter-news.stats :as stats]
-            [com.beardandcode.twitter-news.streaming :as s]))
+            [com.beardandcode.twitter-news.api.streaming :as s]
+            [com.beardandcode.twitter-news.stats :as stats]))
 
 (defrecord FunctionProcessor [process-fn streamer in-chan metric-registry]
   component/Lifecycle

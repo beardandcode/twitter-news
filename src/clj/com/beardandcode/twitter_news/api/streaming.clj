@@ -1,10 +1,9 @@
-(ns com.beardandcode.twitter-news.streaming
+(ns com.beardandcode.twitter-news.api.streaming
   (:import [java.util.concurrent LinkedBlockingQueue]
            [com.twitter.hbc ClientBuilder]
            [com.twitter.hbc.core Constants]
            [com.twitter.hbc.core.endpoint StatusesFilterEndpoint]
-           [com.twitter.hbc.core.processor StringDelimitedProcessor]
-           [com.twitter.hbc.httpclient.auth OAuth1])
+           [com.twitter.hbc.core.processor StringDelimitedProcessor])
   (:require [clojure.core.async :as async]
             [cheshire.core :as json]
             [com.stuartsierra.component :as component]
@@ -12,9 +11,6 @@
             [metrics.meters :refer [mark! meter]]
             [metrics.gauges :refer [gauge-fn]]
             [com.beardandcode.twitter-news.stats :as stats]))
-
-(defn make-auth [consumer-key consumer-secret token secret]
-  (OAuth1. consumer-key consumer-secret token secret))
 
 (defn- make-filter-stream-client [auth terms follows processor-queue]
   (let [endpoint (StatusesFilterEndpoint.)]
