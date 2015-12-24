@@ -9,16 +9,18 @@
 (defrecord FunctionProcessor [process-fn streamer in-chan metric-registry]
   component/Lifecycle
   (start [processor]
-    (let [metric-registry (new-registry)
-          in-meter (meter metric-registry "inbound")
-          in-chan (async/chan 1 (map #(do (mark! in-meter) %)))]
-      (s/tap streamer in-chan)
-      (process-fn in-chan metric-registry)
-      (assoc processor :in-chan in-chan :metric-registry metric-registry)))
+    (if in-chan processor
+        (let [metric-registry (new-registry)
+              in-meter (meter metric-registry "inbound")
+              in-chan (async/chan 1 (map #(do (mark! in-meter) %)))]
+          (s/tap streamer in-chan)
+          (process-fn in-chan metric-registry)
+          (assoc processor :in-chan in-chan :metric-registry metric-registry))))
   (stop [processor]
-    (do (s/untap streamer in-chan)
-        (async/close! in-chan)
-        (dissoc processor :in-chan)))
+    (if (not in-chan) processor
+        (do (s/untap streamer in-chan)
+            (async/close! in-chan)
+            (dissoc processor :in-chan))))
 
   stats/StatsProvider
   (stats [_]
