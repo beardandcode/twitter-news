@@ -8,6 +8,7 @@
             [cheshire.core :as json]
             [com.stuartsierra.component :as component]
             [metrics.core :refer [new-registry]]
+            [metrics.meters :refer [mark! meter]]
             [throttler.core :refer [throttle-chan]]
             [com.beardandcode.twitter-news.stats :as stats]))
 
@@ -31,13 +32,15 @@
     (.close response)
     (json/parse-string body-string)))
 
-(defn- throttled-requester [auth request-fn num per-period]
-  (let [request-chan (async/chan)
-        throttled-chan (throttle-chan request-chan num per-period)]
+(defn- throttled-requester [name metrics-registry auth request-fn num per-period]
+  (let [request-chan (async/chan (stats/buffer (str name ".waiting") 100 metrics-registry))
+        throttled-chan (throttle-chan request-chan num per-period)
+        request-rate (meter metrics-registry (str name ".rate"))]
     (async/go-loop []
       (let [{:keys [params out-chan]} (async/<! throttled-chan)]
         (async/>! out-chan (execute->json (request-fn auth params)))
         (async/close! out-chan)
+        (mark! request-rate)
         (recur)))
     (fn [params]
       (let [out-chan (async/chan)]
@@ -61,19 +64,20 @@
   (tweets [_ user] "Returns a stream of a users tweets")
   (favourites [_ user] "Returns a stream of a users favourites"))
 
-(defrecord HttpTwitterClient [base-url auth tweets-requester favourites-requester]
+(defrecord HttpTwitterClient [base-url auth metrics-registry tweets-requester favourites-requester]
   component/Lifecycle
   (start [client]
     (if tweets-requester client
         (let [metrics-registry (new-registry)]
           (assoc client
-                 :tweets-requester (throttled-requester
+                 :metrics-registry metrics-registry
+                 :tweets-requester (throttled-requester "tweets" metrics-registry
                                     auth (get-request base-url "/statuses/user_timeline.json") 12 :minute)
-                 :favourites-requester (throttled-requester
+                 :favourites-requester (throttled-requester "favourites" metrics-registry
                                         auth (get-request base-url "/favorites/list.json") 1 :minute)))))
   (stop [client]
     (if (not tweets-requester) client
-        (dissoc client :tweets-requester :favourites-requester)))
+        (dissoc client :metrics-registry :tweets-requester :favourites-requester)))
 
   TwitterClient
   (tweets [_ user]
@@ -82,7 +86,7 @@
     (all-tweets-from favourites-requester user))
 
   stats/StatsProvider
-  (stats [_]))
+  (stats [_] (stats/from-registry metrics-registry)))
 
 (defn new-client [auth]
   (map->HttpTwitterClient {:base-url "https://api.twitter.com/1.1"

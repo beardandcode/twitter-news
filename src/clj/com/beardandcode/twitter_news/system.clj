@@ -21,7 +21,7 @@
      :health-routes (component/using
                      (new-routes health/routes-fn {:username (:health-username env)
                                                    :password (:health-password env)})
-                     [:streamer :urls])
+                     [:client :streamer :urls])
      :webapp-routes (new-routes webapp/routes-fn)
      :routes (component/using (new-context-routes {"/health" :health-routes
                                                    ""        :webapp-routes})
