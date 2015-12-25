@@ -1,5 +1,7 @@
 This pulls in data from twitter about links shared and the conversation around them, munges it a bit and then serves it up.
 
+This project is a **prototype**, the quality of the code is not quite as high as might be desired.
+
 ## Dependencies
 
   - [Leiningen 2+](http://leiningen.org)
