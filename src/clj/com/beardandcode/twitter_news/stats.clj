@@ -3,22 +3,29 @@
   (:require [clojure.core.async :as async]
             [clojure.core.async.impl.protocols :as async-protocols]
             [metrics.gauges :refer [gauge-fn value]]
-            [metrics.meters :refer [rates]]))
+            [metrics.meters :refer [mark! meter rates]]
+            [metrics.timers :refer [percentiles]]))
 
 (defprotocol StatsProvider
   (stats [_]))
 
-(defrecord StatsBuffer [queue capacity]
+(deftype StatsBuffer [queue capacity in-meter out-meter]
   async-protocols/Buffer
-  (full? [_] (println "full?") (>= (.size queue) capacity))
-  (remove! [_] (println "remove!") (.remove queue))
-  (add!* [_ value] (println "add!*") (.add value))
-  (close-buf! [_] (println "close-buf!")))
+  (full? [_] (>= (.size queue) capacity))
+  (remove! [_] (mark! out-meter) (.removeLast queue))
+  (add!* [this value] (.addFirst queue value) (mark! in-meter) this)
+  (close-buf! [_])
+
+  clojure.lang.Counted
+  (count [_] (.size queue)))
 
 (defn buffer [name capacity metrics-registry]
-  (let [buf (async/buffer capacity)]
-    (gauge-fn metrics-registry (format "%s-size" name) #(count buf))
-    (gauge-fn metrics-registry (format "%s-remaining" name) #(- capacity (count buf)))
+  (let [queue (LinkedList.)
+        buf (StatsBuffer. queue capacity
+                          (meter metrics-registry (format "%s.in" name))
+                          (meter metrics-registry (format "%s.out" name)))]
+    (gauge-fn metrics-registry (format "%s.size" name) #(.size queue))
+    (gauge-fn metrics-registry (format "%s.remaining" name) #(- capacity (.size queue)))
     buf))
 
 (defn- metrics-from [get-fn parse-fn]
@@ -27,5 +34,9 @@
                           (-> entry .getValue parse-fn)}))))
 
 (defn from-registry [registry]
-  (apply merge (concat (metrics-from #(.getMeters registry) rates)
-                       (metrics-from #(.getGauges registry) value))))
+  (reduce (fn [out [key val]]
+            (assoc-in out (clojure.string/split key (re-pattern "\\.")) val))
+          {}
+          (apply merge (concat (metrics-from #(.getMeters registry) rates)
+                               (metrics-from #(.getGauges registry) value)
+                               (metrics-from #(.getTimers registry) percentiles)))))
