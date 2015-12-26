@@ -5,10 +5,12 @@
            [org.apache.http.util EntityUtils]
            [com.twitter.hbc.httpclient.auth OAuth1])
   (:require [clojure.core.async :as async]
+            [clojure.tools.logging :as log]
             [cheshire.core :as json]
             [com.stuartsierra.component :as component]
             [metrics.core :refer [new-registry]]
             [metrics.meters :refer [mark! meter]]
+            [metrics.timers :refer [timer time!]]
             [throttler.core :refer [throttle-chan]]
             [com.beardandcode.twitter-news.stats :as stats]))
 
@@ -26,34 +28,64 @@
       (.signRequest auth request nil)
       request)))
 
-(defn- execute->json [request]
+;; from the twitter api documentation
+(def all-statuses [200 304 400 401 403 404 406 410 420 422 429 500 502 503 504])
+
+(defn- execute->json [request status-meters]
+  (log/infof "Requesting from %s" (.toString request))
   (let [response (.execute (HttpClients/createDefault) request)
+        status-code (.getStatusCode (.getStatusLine response))
         body-string (EntityUtils/toString (.getEntity response) "UTF-8")]
     (.close response)
-    (json/parse-string body-string)))
+    (if-let [meter (status-meters status-code)] (mark! meter))
+    (if (= status-code 429)
+      (let [limit-cleared-ms (-> response
+                                 (.getHeaders "X-Rate-Limit-Reset")
+                                 first (.getValue) Long/parseLong (* 1000))
+            until-cleared-ms (- limit-cleared-ms (System/currentTimeMillis))]
+        (log/infof "Rate was limited, clearing at %d so we are waiting for %dms"
+                  limit-cleared-ms until-cleared-ms)
+        (if (> until-cleared-ms 0) (async/<! (async/timeout until-cleared-ms)))
+        (execute->json request status-meters))
+      (json/parse-string body-string))))
 
 (defn- throttled-requester [name metrics-registry auth request-fn num per-period]
   (let [request-chan (async/chan (stats/buffer (str name ".waiting") 100 metrics-registry))
         throttled-chan (throttle-chan request-chan num per-period)
-        request-rate (meter metrics-registry (str name ".rate"))]
+        control-chan (async/chan)
+        request-rate (meter metrics-registry (str name ".rate"))
+        response-timer (timer metrics-registry (str name ".response-time"))
+        status-meters (reduce #(assoc %1 %2 (meter metrics-registry (str name ".status." %2)))
+                              {} all-statuses)]
+    (log/infof "Requester[%s] starting" name)
     (async/go-loop []
-      (let [{:keys [params out-chan]} (async/<! throttled-chan)]
-        (async/>! out-chan (execute->json (request-fn auth params)))
-        (async/close! out-chan)
-        (mark! request-rate)
-        (recur)))
-    (fn [params]
-      (let [out-chan (async/chan)]
-        (async/go (async/>! request-chan {:params params :out-chan out-chan}))
-        out-chan))))
+      (let [[v ch] (async/alts! [throttled-chan control-chan])]
+        (if (= ch throttled-chan)
+          (let [{:keys [params out-chan]} v]
+            (async/>! out-chan (time! response-timer
+                                      (execute->json (request-fn auth params) status-meters)))
+            (async/close! out-chan)
+            (mark! request-rate)
+            (recur))
+          (log/infof "Requester[%s] stopping" name))))
+    (fn
+      ([] (async/>!! control-chan :kill))
+      ([params]
+       (let [out-chan (async/chan)]
+         (async/go (async/>! request-chan {:params params :out-chan out-chan}))
+         out-chan)))))
 
 (defn- all-tweets-from [requester user]
   (let [out-chan (async/chan)]
     (async/go-loop [response (async/<! (requester {"screen_name" user "count" 200}))]
       (if (> (count response) 0)
         (let [lowest-id (->> response
-                             (map #(get % "id_str"))
-                             (map #(Long/parseLong %))
+                             (map #(if-let [id (get % "id_str")]
+                                     id
+                                     (do (println %) "0")))
+                             (map #(try
+                                     (Long/parseLong %)
+                                     (catch Exception e (println %) (.printStackTrace e))))
                              sort first)]
           (doseq [tweet response] (async/>! out-chan tweet))
           (recur (async/<! (requester {"screen_name" user "count" 200 "max_id" (dec lowest-id)}))))
@@ -77,7 +109,9 @@
                                         auth (get-request base-url "/favorites/list.json") 1 :minute)))))
   (stop [client]
     (if (not tweets-requester) client
-        (dissoc client :metrics-registry :tweets-requester :favourites-requester)))
+        (do (tweets-requester)
+            (favourites-requester)
+            (dissoc client :metrics-registry :tweets-requester :favourites-requester))))
 
   TwitterClient
   (tweets [_ user]
