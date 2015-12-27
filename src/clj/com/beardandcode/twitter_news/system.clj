@@ -9,7 +9,8 @@
             [com.beardandcode.twitter-news.processor :refer [new-processor]]
             [com.beardandcode.twitter-news.processor.recorder :refer [record-stream]]
             [com.beardandcode.twitter-news.processor.urls :refer [extract-urls]]
-            [com.beardandcode.twitter-news.webapp :as webapp]))
+            [com.beardandcode.twitter-news.webapp :as webapp]
+            [com.beardandcode.twitter-news.users :refer [new-users]]))
 
 (defn new-system [env]
   (let [twitter-auth (make-auth (:twitter-consumer-key env) (:twitter-consumer-secret env)
@@ -48,4 +49,11 @@
     (component/system-map
      :streamer (new-filter-stream twitter-auth terms follows)
      :urls (component/using (new-processor extract-urls) [:streamer]))))
+
+(defn new-users-system [creds seed]
+  (let [twitter-auth (make-auth (:consumer-key creds) (:consumer-secret creds)
+                                (:token creds) (:secret creds))]
+    (component/system-map
+     :client (new-client twitter-auth)
+     :users (component/using (new-users seed) [:client]))))
 

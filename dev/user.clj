@@ -12,7 +12,7 @@
             [com.beardandcode.twitter-news.processor :as processor]
             [com.beardandcode.twitter-news.stats :as stats]
             [com.beardandcode.twitter-news.system :refer [new-system new-recorder-system new-recorded-system
-                                                          new-live-system]]))
+                                                          new-live-system new-users-system]]))
 
 (selmer.parser/cache-off!)
 
@@ -59,3 +59,6 @@
 
 (defn live [terms follows]
   (run-system (new-live-system twitter-creds terms follows)))
+
+(defn users [seed]
+  (run-system (new-users-system twitter-creds seed)))
